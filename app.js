@@ -344,7 +344,7 @@ function vInv() {
   const struct = `<section class="card"><b>Структура капитала сейчас</b>${DIRS.filter(d => c.by[d[0]] > 0).map(d => barRow(d[1], c.by[d[0]], c.v, c.v)).join('')}</section>`;
   const fxu = fxUsed();
   const nofx = c.nofx.length ? `<div class="note">Не задан курс: ${c.nofx.join(', ')}. Позиции в ${c.nofx.length > 1 ? 'этих валютах' : 'этой валюте'} пока не входят в капитал.<button class="link blk" data-act="fx">Указать курс</button></div>` : '';
-  const rates = fxu.length ? `<section class="card"><b>Курсы валют</b>${fxu.map(x => `<div class="kv"><span>${nf.format(lotOf(x))} ${x}</span><b>${rateOf(x) > 0 ? price(fxVal(x), 'RUB') : 'не задан'}</b></div>`).join('')}<p class="mut sm" style="margin-top:8px">Капитал считается в рублях по этим курсам. Курсы вводятся вручную.</p><button class="link" data-act="fx">Изменить курсы</button></section>` : '';
+  const rates = fxu.length ? `<section class="card"><b>Курсы валют</b>${fxu.map(x => `<div class="kv"><span>${nf.format(lotOf(x))} ${x}</span><b>${rateOf(x) > 0 ? price(fxVal(x), 'RUB') : 'не задан'}</b></div>`).join('')}<p class="mut sm" style="margin-top:8px">Капитал считается в рублях по этим курсам. ${GHB ? 'Свежие курсы ЦБ РФ и цены CoinGecko загружаются по кнопке в форме, сохраняете их вы.' : 'Курсы вводятся вручную.'}</p><button class="link" data-act="fx">Изменить курсы</button></section>` : '';
   const groups = DIRS.map(d => {
     const k = d[0], ps = c.ps.filter(p => p.k === k).sort((a, b) => b.rv - a.rv), gpl = r2(c.by[k] - c.cost[k]);
     if (!ps.length && !(c.pe[k] > 0)) return '';
@@ -404,6 +404,7 @@ function posSheet(p) {
     + `<label class="f">Валюта позиции<select class="in" name="cur">${CURS.map(x => `<option value="${x[0]}"${x[0] === cu ? ' selected' : ''}>${clab(x[0])} · ${x[1]}</option>`).join('')}${std ? '' : `<option value="${cu}" selected>${cu}</option>`}<option value="?">Другая…</option></select></label>`
     + '<label class="f" id="pcx" hidden>Код валюты латинскими буквами<input class="in" name="curx" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="например, AED"></label>'
     + '<label class="f" id="pfx" hidden><span>Курс: <span id="pfl"></span></span><input class="in" name="fx" inputmode="decimal" autocomplete="off" placeholder="0"></label>'
+    + `<div class="col" id="pfa" hidden>${autoBtn('Загрузить курс')}</div>`
     + '<p class="mut sm" id="pfh" hidden></p>'
     + `<div class="two"><label class="f">Количество<input class="in" name="u" inputmode="decimal" autocomplete="off" placeholder="например, 3" value="${p && p.u ? p.u : ''}"></label><label class="f"><span>Цена за штуку, <span class="cu">₽</span></span><input class="in" name="pr" inputmode="decimal" autocomplete="off" placeholder="0" value="${p && p.u ? rpr(p.v / p.u) : ''}"></label></div>`
     + `<label class="f"><span>Стоимость всей позиции, <span class="cu">₽</span></span><input class="in" name="v" inputmode="decimal" autocomplete="off" placeholder="0" value="${p ? p.v : ''}"></label><p class="mut sm">Считается сама: количество × цена. Если количество не нужно, введите сумму сразу.</p>`
@@ -443,7 +444,7 @@ function posCur() {
   const cu = posCode(), f = !!cu && cu !== 'RUB';
   $('#pcx').hidden = sel.value !== '?';
   shf.querySelectorAll('.cu').forEach(x => { x.textContent = cu ? clab(cu) : '…'; });
-  $('#pfx').hidden = !f; $('#pfh').hidden = !f;
+  $('#pfx').hidden = !f; $('#pfh').hidden = !f; $('#pfa').hidden = !f;
   if (f) {
     $('#pfl').textContent = fxLabel(cu);
     if (O.cu !== cu) $('[name=fx]', shf).value = fxVal(cu);
@@ -464,8 +465,9 @@ function updSheet() {
   const c = cap(), ord = DIRS.map(d => d[0]), ps = c.ps.slice().sort((a, b) => ord.indexOf(a.k) - ord.indexOf(b.k) || b.rv - a.rv), fxu = fxUsed();
   O = null;
   sheet('Обновить стоимость', `<p class="mut sm">${fxu.length ? 'Сначала курсы валют, затем цены в валюте каждой позиции. ' : ''}Введите текущую цену за штуку, а где количество не указано, стоимость всей позиции. Результат пересчитается сам. Если докупали или продавали, поправьте количество и результат в самой позиции.</p>`
+    + (fxu.length || ps.some(coinFor) ? autoBtn(ps.some(coinFor) ? 'Загрузить курсы и цены' : 'Загрузить курсы') : '')
     + fxu.map(fxField).join('')
-    + ps.map(p => p.u > 0 ? `<label class="f">${esc(p.n)}: цена за штуку, ${clab(p.cu)} (${nf6.format(p.u)} шт.)<input class="in" name="pr_${esc(p.id)}" inputmode="decimal" autocomplete="off" value="${rpr(p.v / p.u)}"></label>` : `<label class="f">${esc(p.n)}: стоимость позиции, ${clab(p.cu)}<input class="in" name="v_${esc(p.id)}" inputmode="decimal" autocomplete="off" value="${p.v}"></label>`).join('')
+    + ps.map(p => p.u > 0 ? `<label class="f">${esc(p.n)}: цена за штуку, ${clab(p.cu)} (${nf6.format(p.u)} шт.)<input class="in" name="pr_${esc(p.id)}" inputmode="decimal" autocomplete="off"${coinFor(p) ? ` data-coin="${coinFor(p)}" data-cc="${p.cu}"` : ''} value="${rpr(p.v / p.u)}"></label>` : `<label class="f">${esc(p.n)}: стоимость позиции, ${clab(p.cu)}<input class="in" name="v_${esc(p.id)}" inputmode="decimal" autocomplete="off" value="${p.v}"></label>`).join('')
     + (c.pt > 0 ? `<label class="ck"><input type="checkbox" name="placed" checked><span>Распределённые ${rub(c.pt)} уже вложены и учтены в стоимости</span></label>` : ''), fd => {
     const patch = {}, now = Date.now(), fx = fxRead(fd, fxu);
     let bad = 0;
@@ -479,11 +481,73 @@ function fxSheet() {
   const fxu = fxUsed();
   O = null;
   if (!fxu.length) return;
-  sheet('Курсы валют', '<p class="mut sm">Сколько рублей стоит валюта сейчас. По этим курсам позиции пересчитываются в рубли для общего капитала. Сами суммы позиций не меняются.</p>' + fxu.map(fxField).join(''), fd => {
+  sheet('Курсы валют', '<p class="mut sm">Сколько рублей стоит валюта сейчас. По этим курсам позиции пересчитываются в рубли для общего капитала. Сами суммы позиций не меняются.</p>' + autoBtn('Загрузить курсы') + fxu.map(fxField).join(''), fd => {
     for (const x of fxu) if (!(numx(fd.get('fx_' + x)) > 0)) return 'Укажите курс ' + x + '.';
     const fx = fxRead(fd, fxu);
     if (Object.keys(fx).length) { saveInv({fx, ed: Date.now()}); snapNow(); }
   }, 'Сохранить курсы');
+}
+/* ---------- rates and coin prices by a button (standalone version only) ----------
+   Two public sources are asked, and only when the button is pressed: the Bank of Russia daily table through the
+   cbr-xml-daily.ru mirror, and CoinGecko for coins. Nothing about the portfolio leaves the device except the list of coins.
+   The answer is untrusted: only plain positive numbers are taken and they only fill the open form. Saving stays with the person. */
+const COINS = {bitcoin: ['btc', 'bitcoin', 'биткоин', 'биткойн', 'xbt'], ethereum: ['eth', 'ethereum', 'ether', 'эфир', 'эфириум'], tether: ['usdt', 'tether'], 'usd-coin': ['usdc'],
+  'the-open-network': ['ton', 'toncoin', 'тон'], solana: ['sol', 'solana', 'солана'], binancecoin: ['bnb'], ripple: ['xrp', 'ripple'], dogecoin: ['doge', 'dogecoin'], tron: ['trx', 'tron'], litecoin: ['ltc', 'litecoin'], cardano: ['ada', 'cardano'], notcoin: ['notcoin']};
+const VS = {RUB: 'rub', USD: 'usd', USDT: 'usd', USDC: 'usd', EUR: 'eur', CNY: 'cny'};
+const coinOf = v => { const tk = String(v || '').toLowerCase().split(/[^a-zа-яё0-9]+/); return Object.keys(COINS).find(k => COINS[k].some(a => tk.indexOf(a) >= 0)) || ''; };
+const coinFor = p => GHB && p.k === 'cr' && p.u > 0 && VS[p.cu] ? coinOf(p.n) : '';
+const autoBtn = label => GHB ? `<button type="button" class="btn sec" data-act="fxauto">${label}</button><p class="mut sm" id="fxs" role="status" hidden></p>` : '';
+async function getJson(url) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), 9000);
+  try {
+    const r = await fetch(url, {signal: c.signal, credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer'});
+    if (!r.ok) throw new Error('http ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+let FXB = 0;
+async function fxAuto(b) {
+  if (!GHB || FXB) return;
+  const fxT = [], prT = [], st = $('#fxs'), lab = b.textContent, uniq = a => a.filter((x, i) => a.indexOf(x) === i);
+  shf.querySelectorAll('input[name^="fx_"]').forEach(el => fxT.push({el, cur: el.name.slice(3)}));
+  const one = $('[name=fx]', shf), pc1 = one ? posCode() : '';
+  if (one && pc1 && pc1 !== 'RUB') fxT.push({el: one, cur: pc1});
+  shf.querySelectorAll('input[data-coin]').forEach(el => prT.push({el, coin: el.dataset.coin, cur: el.dataset.cc}));
+  if (one && O && O.k === 'cr' && VS[pc1]) { const cn = coinOf($('[name=n]', shf).value); if (cn) prT.push({el: $('[name=pr]', shf), coin: cn, cur: pc1, live: 1}); }
+  fxT.forEach(t => { t.coin = coinOf(t.cur); });
+  prT.forEach(t => { if (!Object.prototype.hasOwnProperty.call(COINS, t.coin)) t.coin = ''; });
+  const needCbr = fxT.some(t => !t.coin), ids = uniq(fxT.map(t => t.coin).concat(prT.map(t => t.coin)).filter(Boolean));
+  if (!fxT.length && !prT.length) return;
+  FXB = 1; b.disabled = true; b.textContent = 'Загружаю…';
+  const [cbr, cg] = await Promise.all([
+    needCbr ? getJson('https://www.cbr-xml-daily.ru/daily_json.js').catch(() => null) : 0,
+    ids.length ? getJson('https://api.coingecko.com/api/v3/simple/price?ids=' + ids.join(',') + '&vs_currencies=rub,usd,eur,cny').catch(() => null) : 0]);
+  FXB = 0;
+  if (b.isConnected) { b.disabled = false; b.textContent = lab; }
+  const okn = x => typeof x === 'number' && isFinite(x) && x > 0 && x < 1e12, own = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k) && o[k] && typeof o[k] === 'object' ? o[k] : null;
+  const val = own(cbr, 'Valute'), gotC = [], gotG = [], miss = [];
+  fxT.forEach(t => {
+    const v = own(val, t.cur), g = t.coin ? own(cg, t.coin) : null;
+    let per = 0;
+    if (v && okn(v.Value) && okn(v.Nominal)) { per = v.Value / v.Nominal; gotC.push(t.cur); }
+    else if (g && okn(g.rub)) { per = g.rub; gotG.push(t.cur); }
+    else if (t.coin ? cg : cbr) miss.push(t.cur);
+    if (per > 0 && t.el.isConnected) t.el.value = +(per * lotOf(t.cur)).toPrecision(8);
+  });
+  prT.forEach(t => {
+    const g = t.coin ? own(cg, t.coin) : null, x = g ? g[VS[t.cur]] : 0;
+    if (!okn(x)) { if (cg) miss.push(COINS[t.coin] ? COINS[t.coin][0].toUpperCase() : t.cur); return; }
+    gotG.push(COINS[t.coin][0].toUpperCase());
+    if (t.el && t.el.isConnected) { t.el.value = rpr(x); if (t.live) t.el.dispatchEvent(new Event('input', {bubbles: true})); }
+  });
+  const dt = cbr && /^\d{4}-\d\d-\d\d/.test(String(cbr.Date || '')) ? pd(String(cbr.Date).slice(0, 10)) : null, msg = [];
+  if (gotC.length) msg.push('Курсы ЦБ' + (dt ? ' на ' + dt.getDate() + ' ' + MG[dt.getMonth()] : '') + ': ' + uniq(gotC).join(', ') + '.');
+  if (gotG.length) msg.push('По данным CoinGecko: ' + uniq(gotG).join(', ') + '.');
+  if (needCbr && cbr === null) msg.push('Курсы ЦБ не загрузились.');
+  if (ids.length && cg === null) msg.push('Цены CoinGecko не загрузились.');
+  if (miss.length) msg.push('Нет в источниках: ' + uniq(miss).join(', ') + '.');
+  msg.push(gotC.length || gotG.length ? 'Проверьте цифры и сохраните.' : 'Введите вручную или попробуйте позже.');
+  if (st && st.isConnected) { st.textContent = msg.join(' '); st.hidden = false; } else toast(gotC.length || gotG.length ? 'Курсы загружены' : 'Курсы не загрузились');
 }
 /* ---------- portfolio from a screenshot ---------- */
 let SM = null, ctl = null;
@@ -834,6 +898,7 @@ const A = {
   newpos() { posSheet(null); },
   upd() { updSheet(); },
   fx() { fxSheet(); },
+  fxauto(b) { fxAuto(b); },
   photo() { $('#ph').click(); },
   placed() { saveInv({upd: Date.now()}); snapNow(); },
   pk(b) { O.k = b.dataset.k; shf.querySelectorAll('[data-act="pk"]').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); if (!O.ct) { const sl = $('[name=cur]', shf); if (sl) { sl.value = O.k === 'cr' ? 'USDT' : 'RUB'; posCur(); } } },
